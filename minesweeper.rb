@@ -7,6 +7,9 @@ require 'pry'
 require 'pry-nav'
 require 'Qt4'
 
+N = 12 #NxN board
+X = 10 #X bombs
+
 class Cell
 	attr_accessor :is_flipped, :is_flagged, :surrounding_mines, :x, :y
 	def initialize(mines, x, y)
@@ -21,20 +24,38 @@ class MineCell < Cell
 	def initialize(x, y)
 		super(nil, x, y)
 	end
+	
+	def to_str
+		if self.is_flipped
+			return "x"
+		elsif self.is_flagged
+			return "F"
+		else
+			return " "
+		end
+	end
 end
 
 class EmptyCell < Cell
 	def initialize(x, y)
 		super(0, x, y)
 	end
+	
+	def to_str
+		if self.is_flipped
+			if self.surrounding_mines.zero?
+				return "0"
+			else
+				return self.surrounding_mines.to_s
+			end
+		elsif self.is_flagged
+			return "F"
+		else
+			return " "
+		end
+	end
 end
 
-
-N = 8 #NxN board
-X = 10 #X bombs
-	
-
-	 
 # get some user input
 def user_input
 	begin
@@ -60,18 +81,18 @@ def process_input(action, x, y)
 		else
 			chosen_cell.is_flagged = !chosen_cell.is_flagged
 		end
-		return true
+		return draw_field true
 	elsif action =~ /[gs]/
 		if chosen_cell.is_flipped
 			puts 'this cell has already been flipped, select a different one'
-			return true
+			 return draw_field true
 		else
 			if chosen_cell.is_a?(MineCell)
 				chosen_cell.is_flipped = true
-				return false
+				 return draw_field false
 			else
 				floodfill(x, y)
-				return true
+				 return draw_field true
 			end
 		end
 	else
@@ -95,41 +116,46 @@ def floodfill(x, y)
 end
 
 def print_board(reveal_bombs=false)
-	s = ""
 	@board.each do |x|
 		x.each do |y|
-			if y.is_a?(MineCell) && (y.is_flipped || reveal_bombs)
-				s << "x"
-			elsif y.is_flipped
-				s << y.surrounding_mines.to_s
-			else
-				if y.is_flagged
-					s << "F"
-				else
-					s << "?"
-				end
-			end
-			s << " "
+			print "#{y.to_str} " 
 		end
-		s << "\n"
+		puts ""
 	end
-	s << "\n"
-	puts s
-	return s
+	puts ""
+end
+
+#if bool is false, the game is over
+def draw_field(bool)
+	@w.children.each {|c| c.dispose }
+	l = Qt::GridLayout.new(@w) do
+		setColumnStretch 1, 1
+	end
+	@board.each do |x|
+		x.each do |y|
+			b = Qt::PushButton.new(y.to_str) do
+				set_flat true if y.is_flipped
+				resize 40, 40
+			end
+			b.connect(SIGNAL :clicked) do
+				process_input('g', y.y, y.x)
+			end
+			l.add_widget(b, y.x, y.y)
+		end
+	end
 end
 
 # create NxN map
 @board = N.times.map{ |x| N.times.map{ |y| EmptyCell.new(x, y)}}
 
 # add X bombs
-X.times do |z|
-
+X.times do
 	begin
 		x = rand(1..N) - 1
 		y = rand(1..N) - 1
 	end while @board[y][x].is_a?(MineCell)
 	
-	@board[y][x] = MineCell.new(x, y)
+	@board[y][x] = MineCell.new(y, x)
 	(-1..1).each do |i|
 		(-1..1).each do |j|
 			unless (i.zero? && j.zero?) || !([x + i, y + j] & [-1, N]).empty? || @board[y + j][x + i].is_a?(MineCell)
@@ -139,22 +165,15 @@ X.times do |z|
 	end
 end
 
+
 # start the game
 puts "New Game!"
-#begin
-#	print_board
-#end while process_input(*user_input)
-#puts 'you picked a mine!'
-#exit(1)
 
-app = Qt::Application.new(ARGV)
- 
-hello = Qt::PushButton.new('Hello World')
-hello.resize(200, 60)
-hello.connect(SIGNAL :clicked) {
-  Qt::MessageBox.new(Qt::MessageBox::Information, "dallagnese.fr", "Ruby Rocks!").exec
-  app.quit
-}
-hello.show
- 
-app.exec
+a = Qt::Application.new(ARGV)
+
+@w = Qt::Widget.new
+@w.setFixedSize N*40, N*40
+draw_field true
+@w.show
+
+a.exec
