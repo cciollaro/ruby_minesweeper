@@ -1,7 +1,7 @@
 # todo:
 # gui: I think cells should extend Qt::PushButton
 # check for end game
-# player should not be able to lose on first click. if first click is a mine, move the mine somewhere else
+# player should not be able to lose on first click. initialize to all empty squares, then after first click, place bombs avoiding the click coord
 
 require 'pry'
 require 'pry-nav'
